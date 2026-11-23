@@ -1,0 +1,1211 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Bloom Terminal</title>
+<style>
+/* Layout: Terminal-Konfigurator oben, danach Vollbild-Bühne mit ASCII-Strauß */
+:root{
+  --bg:#05060b;
+  --panel:#0b0e16;
+  --ink:#d6efe4;
+  --dim:#6d8a7e;
+  --line:#1f2b2a;
+  --neon:#59ffb4;
+  --pink:#ff5fa8;
+  --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,"Liberation Mono",monospace;
+  color-scheme:dark;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;margin:0;background:var(--bg);color:var(--ink);font-family:var(--mono)}
+button,input{font-family:inherit}
+
+#setup{min-height:100%;padding:max(20px,env(safe-area-inset-top)) 18px max(28px,env(safe-area-inset-bottom));display:flex;flex-direction:column;gap:22px;max-width:560px;margin:0 auto}
+h1{margin:6px 0 0;font-size:30px;letter-spacing:.04em;font-weight:700;color:var(--pink);text-shadow:0 0 14px rgba(255,95,168,.55)}
+h1 span{color:var(--neon);text-shadow:0 0 14px rgba(89,255,180,.5)}
+h1 i{display:inline-block;width:.55em;height:1em;background:var(--neon);vertical-align:-.12em;margin-left:6px;animation:blink 1s steps(1) infinite}
+@keyframes blink{50%{opacity:0}}
+@media (prefers-reduced-motion:reduce){h1 i{animation:none}}
+.sub{margin:6px 0 0;color:var(--dim);font-size:13px}
+section h2{margin:0 0 10px;font-size:13px;font-weight:400;letter-spacing:.12em;text-transform:uppercase;color:var(--dim);display:flex;justify-content:space-between;align-items:baseline}
+section h2 b{color:var(--neon);font-weight:400}
+.all{background:none;border:0;color:var(--pink);font-size:13px;letter-spacing:.08em;text-transform:uppercase;padding:10px 12px;margin:-10px 4px -10px 0;cursor:pointer}
+.all:focus-visible{outline:2px solid var(--pink);outline-offset:2px}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{display:inline-flex;align-items:center;gap:8px;min-height:44px;padding:0 14px;background:var(--panel);color:var(--dim);border:1px solid var(--line);border-radius:6px;font-size:15px;cursor:pointer}
+.chip .dot{width:14px;height:14px;border-radius:50%;opacity:.45}
+.chip .sig{width:14px;text-align:center;color:var(--dim)}
+.chip[aria-pressed="true"]{color:var(--ink);border-color:var(--neon);background:#0d1a17;box-shadow:0 0 0 1px rgba(89,255,180,.25) inset}
+.chip[aria-pressed="true"] .dot{opacity:1;box-shadow:0 0 10px currentColor}
+.chip[aria-pressed="true"] .sig{color:var(--neon)}
+.chip:focus-visible,#go:focus-visible,.bar button:focus-visible,input:focus-visible{outline:2px solid var(--pink);outline-offset:2px}
+input[type=range]{width:100%;accent-color:var(--neon);height:32px}
+input[type=text]{width:100%;min-height:44px;background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:6px;padding:0 14px;font-size:16px}
+#go{margin-top:4px;min-height:56px;border:1px solid var(--pink);background:rgba(255,95,168,.08);color:var(--pink);font-size:16px;letter-spacing:.14em;border-radius:6px;cursor:pointer;text-shadow:0 0 10px rgba(255,95,168,.6)}
+#go:active{background:rgba(255,95,168,.2)}
+#go:disabled{opacity:.35;cursor:not-allowed}
+.hint{margin:0;color:var(--dim);font-size:12px;min-height:16px}
+
+#stage{position:fixed;inset:0;background:radial-gradient(ellipse at 50% 42%,#10131f 0%,#07080f 55%,#030308 100%);overflow:hidden}
+#stage[hidden]{display:none}
+#cv{position:absolute;inset:0;width:100%;height:100%;touch-action:none;cursor:grab}
+.scan{position:absolute;inset:0;pointer-events:none;background:repeating-linear-gradient(to bottom,rgba(0,0,0,.28) 0 1px,transparent 1px 3px)}
+#status{position:absolute;top:max(12px,env(safe-area-inset-top));left:16px;right:16px;font-size:12px;color:var(--neon);text-shadow:0 0 8px rgba(89,255,180,.5);white-space:pre;pointer-events:none}
+#dedic{position:absolute;left:0;right:0;bottom:calc(76px + env(safe-area-inset-bottom));text-align:center;color:var(--pink);font-size:15px;letter-spacing:.06em;text-shadow:0 0 12px rgba(255,95,168,.8);opacity:0;transition:opacity 1.2s;pointer-events:none;padding:0 16px}
+#dedic.on{opacity:1}
+.bar{position:absolute;left:0;right:0;bottom:0;display:flex;gap:6px;padding:10px 10px calc(12px + env(safe-area-inset-bottom));background:linear-gradient(to top,rgba(5,6,11,.92),rgba(5,6,11,0))}
+.bar button{flex:1;min-height:46px;padding:0 4px;background:rgba(11,14,22,.8);color:var(--ink);border:1px solid var(--line);border-radius:6px;font-size:12px;cursor:pointer}
+.bar button:active{border-color:var(--neon);color:var(--neon)}
+
+.inbox{border:1px solid var(--line);border-radius:6px;background:var(--panel);padding:0 14px}
+.inbox summary{min-height:48px;display:flex;align-items:center;cursor:pointer;color:var(--pink);font-size:14px;letter-spacing:.04em}
+.inbox[open] summary{border-bottom:1px solid var(--line)}
+.inbox .body{display:flex;flex-direction:column;gap:10px;padding:12px 0 14px}
+textarea{width:100%;background:#070910;color:var(--ink);border:1px solid var(--line);border-radius:6px;padding:10px 12px;font-size:13px;font-family:inherit;resize:vertical}
+textarea:focus-visible{outline:2px solid var(--pink);outline-offset:2px}
+.ghost{min-height:44px;border:1px solid var(--neon);background:rgba(89,255,180,.06);color:var(--neon);border-radius:6px;font-size:14px;letter-spacing:.1em;cursor:pointer}
+.row{display:flex;gap:8px;margin-bottom:8px}
+.row input{min-width:0;flex:1}
+#note,#fromN,#toN{font-size:16px}
+#bubble{position:absolute;max-width:210px;transform:translate(-50%,-100%);background:rgba(5,6,11,.92);border:1px solid var(--pink);color:var(--ink);padding:6px 10px;font-size:12px;border-radius:6px;pointer-events:none;text-shadow:0 0 8px rgba(255,95,168,.4);z-index:3}
+#bubble[hidden]{display:none}
+#bubble::after{content:"";position:absolute;left:50%;bottom:-6px;width:9px;height:9px;background:#05060b;border-right:1px solid var(--pink);border-bottom:1px solid var(--pink);transform:translateX(-50%) rotate(45deg)}
+.sheet{position:absolute;left:12px;right:12px;bottom:calc(70px + env(safe-area-inset-bottom));background:rgba(8,10,16,.95);border:1px solid var(--pink);border-radius:8px;padding:14px;display:flex;flex-direction:column;gap:10px;box-shadow:0 0 24px rgba(255,95,168,.25);max-height:64%;overflow:auto;z-index:4}
+.sheet[hidden]{display:none}
+.sheet h3{margin:0;font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--pink);font-weight:400}
+.sheet p{margin:0;font-size:15px;line-height:1.45}
+.sheet .btns{display:flex;gap:8px;flex-wrap:wrap}
+.sheet .btns button{flex:1;min-width:120px;min-height:46px;padding:0 8px;background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:6px;font-size:13px;cursor:pointer}
+.sheet .btns button.pri{border-color:var(--pink);color:var(--pink)}
+.sheet .btns button:focus-visible{outline:2px solid var(--pink);outline-offset:2px}
+#stage[data-mode="send"] .sheet{bottom:calc(14px + env(safe-area-inset-bottom))}
+#stage[data-mode="send"] .bar,#stage[data-mode="send"] #dedic,#stage[data-mode="receive"] #dedic{display:none}
+#stage[data-mode="receive"] #bMix,#stage[data-mode="receive"] #bSend,#stage[data-mode="preview"] #bAgain{display:none}
+.bar button.pri{border-color:var(--pink);color:var(--pink)}
+
+html{-webkit-text-size-adjust:100%}
+#setup{gap:18px}
+.chips{gap:6px}
+.chip{min-height:42px;padding:0 12px;font-size:14px}
+.inbox summary{font-size:13px}
+#codeIn,#shareTxt{font-size:16px}
+#go{position:sticky;bottom:max(10px,env(safe-area-inset-bottom));background:#1a0b14;box-shadow:0 0 0 10px var(--bg);z-index:2}
+#status{white-space:pre-wrap;line-height:1.35}
+.bar button{white-space:nowrap;font-size:11px;padding:0 2px}
+.sheet p{font-size:14px}
+#setup[hidden]{display:none}
+</style>
+</head>
+<body>
+<main id="setup">
+  <header>
+    <h1>BLOOM<span>.exe</span><i></i></h1>
+    <p class="sub">blumenpost &middot; binde einen strauß, der bote bringt ihn</p>
+  </header>
+  <details id="inbox" class="inbox">
+    <summary>Blumenpost erhalten? ▸</summary>
+    <div class="body">
+      <textarea id="codeIn" rows="3" placeholder="Code (bq-…) oder die ganze Nachricht hier einfügen" aria-label="Code der Blumenpost"></textarea>
+      <button id="unpack" type="button" class="ghost">[ bote rufen ]</button>
+      <p class="hint" id="inHint"></p>
+    </div>
+  </details>
+  <section>
+    <h2><span>01 farben</span><span><button type="button" class="all" id="allC">alle</button><b id="cColors">0</b></span></h2>
+    <div id="colors" class="chips"></div>
+  </section>
+  <section>
+    <h2><span>02 blumen</span><span><button type="button" class="all" id="allK">alle</button><b id="cKinds">0</b></span></h2>
+    <div id="kinds" class="chips"></div>
+  </section>
+  <section>
+    <h2><span>03 fülle</span><b><span id="countOut">9</span> blumen</b></h2>
+    <input id="count" type="range" min="5" max="20" step="1" value="9" aria-label="Anzahl der Blumen">
+  </section>
+  <section>
+    <h2><span>04 blumenpost</span></h2>
+    <div class="row">
+      <input id="fromN" type="text" maxlength="16" placeholder="Dein Name" aria-label="Dein Name">
+      <input id="toN" type="text" maxlength="16" placeholder="Für wen?" aria-label="Name des Empfängers">
+    </div>
+    <input id="note" type="text" maxlength="80" placeholder="Nachricht, z. B. Alles Gute ♥" aria-label="Nachricht">
+  </section>
+  <p class="hint" id="hint"></p>
+  <button id="go" type="button">[ strauß binden ]</button>
+</main>
+
+<div id="stage" hidden>
+  <canvas id="cv"></canvas>
+  <div class="scan"></div>
+  <div id="status"></div>
+  <div id="dedic"></div>
+  <div id="bubble" hidden></div>
+  <div id="card" class="sheet" hidden>
+    <h3 id="cardHead"></h3>
+    <p id="cardMsg"></p>
+    <div class="btns">
+      <button id="cReply" type="button" class="pri">Strauß zurückschicken</button>
+      <button id="cAgain" type="button">nochmal ansehen</button>
+    </div>
+  </div>
+  <div id="sendPanel" class="sheet" hidden>
+    <h3>paket ist unterwegs ♥</h3>
+    <p>Schick diese Nachricht an <span id="spTo"></span>. Sobald der Code eingefügt wird, bringt der Bote den Strauß.</p>
+    <textarea id="shareTxt" rows="6" readonly aria-label="Nachricht zum Verschicken"></textarea>
+    <div class="btns">
+      <button id="spCode" type="button" class="pri">Code kopieren</button>
+      <button id="spNew" type="button">neuer Strauß</button>
+    </div>
+    <p class="hint" id="spHint"></p>
+  </div>
+  <div class="bar">
+    <button id="bBack" type="button">&lsaquo; zurück</button>
+    <button id="bMix" type="button">mischen</button>
+    <button id="bAgain" type="button">nochmal</button>
+    <button id="bZoom" type="button">zoom 1×</button>
+    <button id="bSpin" type="button">stopp</button>
+    <button id="bSend" type="button" class="pri">senden ➤</button>
+  </div>
+</div>
+
+<script>
+(function(){
+'use strict';
+
+/* ---------- Helfer ---------- */
+const TAU=Math.PI*2, CYW=0.16;
+let STEP=0.015, pitch=0.2;
+const clamp=(x,a,b)=>x<a?a:(x>b?b:x);
+const smooth=x=>x<=0?0:(x>=1?1:x*x*(3-2*x));
+const hash=n=>{const s=Math.sin(n*12.9898)*43758.5453;return s-Math.floor(s);};
+let rng=Math.random;
+function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
+const rnd=(a,b)=>a+rng()*(b-a);
+function shuffle(a){for(let i=a.length-1;i>0;i--){const j=(rng()*(i+1))|0;const t=a[i];a[i]=a[j];a[j]=t;}return a;}
+
+/* ---------- Farbpalette (6 Helligkeitsstufen je Farbe) ---------- */
+const pal=[];
+function reg(h,s,l){const base=pal.length;[0.55,0.7,0.85,1,1.12,1.25].forEach(f=>{pal.push('hsl('+h+','+s+'%,'+clamp(l*f,6,97).toFixed(0)+'%)');});return base;}
+const shade=li=>clamp((li*6)|0,0,5);
+
+const COLORS=[
+  {id:'rot',name:'Rot',h:354,s:92,l:50},
+  {id:'pink',name:'Pink',h:322,s:88,l:58},
+  {id:'rosa',name:'Rosa',h:345,s:92,l:74},
+  {id:'lila',name:'Lila',h:282,s:78,l:60},
+  {id:'blau',name:'Blau',h:214,s:90,l:60},
+  {id:'gelb',name:'Gelb',h:50,s:100,l:52},
+  {id:'orange',name:'Orange',h:26,s:100,l:54},
+  {id:'weiss',name:'Weiß',h:40,s:20,l:88},
+  {id:'tuerkis',name:'Türkis',h:175,s:80,l:50},
+  {id:'bordeaux',name:'Bordeaux',h:345,s:75,l:32}
+];
+COLORS.forEach(c=>{c.b=reg(c.h,c.s,c.l);});
+const OR=COLORS.find(c=>c.id==='orange').b;
+const STEM=reg(132,80,50), LEAF=reg(112,70,46), LEAFL=reg(92,75,56),
+      PAPER=reg(60,12,88), PAPERG=reg(100,70,60), RIB=reg(332,95,62),
+      STAM=reg(32,95,48), DYEL=reg(48,100,50), DBRN=reg(24,75,30), DDARK=reg(150,25,14),
+      DSP=reg(350,75,32), THR=reg(78,85,52), BEARD=reg(46,100,55), DPUR=reg(285,55,28);
+
+/* ---------- Zeichen ---------- */
+const RAMP='.:+*o%@';
+const FIXED=['-',':','=','.','*','+','@','%','o','#','^'];
+const G={dash:2,colon:3,eq:4,dot:5,star:6,plus:7,at:8,pct:9,o:10,hash:11,up:12};
+
+/* ---------- Punktspeicher ---------- */
+const CAP=300000;
+const PX=new Float32Array(CAP),PY=new Float32Array(CAP),PZ=new Float32Array(CAP);
+const TX=new Float32Array(CAP),TY=new Float32Array(CAP),TZ=new Float32Array(CAP);
+const LI=new Float32Array(CAP);
+const CI=new Uint16Array(CAP);
+const GL=new Uint8Array(CAP);
+let N=0;
+function add(x,y,z,li,ci,gl){if(N>=CAP)return;PX[N]=x;PY[N]=y;PZ[N]=z;LI[N]=clamp(li,0,1);CI[N]=ci;GL[N]=gl;N++;}
+function addT(x,y,z,tx,ty,tz,li,ci){if(N>=CAP)return;PX[N]=x;PY[N]=y;PZ[N]=z;TX[N]=tx;TY[N]=ty;TZ[N]=tz;LI[N]=li;CI[N]=ci;GL[N]=1;N++;}
+/* fertige Teile werden einmal berechnet und danach nur noch kopiert */
+function takeSnap(s){const e=N;return{n:e-s,a:PX.slice(s,e),b:PY.slice(s,e),c:PZ.slice(s,e),d:TX.slice(s,e),e:TY.slice(s,e),f:TZ.slice(s,e),li:LI.slice(s,e),ci:CI.slice(s,e),gl:GL.slice(s,e)};}
+function appendSnap(q){
+  if(N+q.n>CAP)return;
+  PX.set(q.a,N);PY.set(q.b,N);PZ.set(q.c,N);TX.set(q.d,N);TY.set(q.e,N);TZ.set(q.f,N);LI.set(q.li,N);CI.set(q.ci,N);GL.set(q.gl,N);N+=q.n;
+}
+function cached(item,complete,fn){
+  if(complete&&item.snap){appendSnap(item.snap);return;}
+  const s=N;fn();
+  if(complete&&!item.snap&&N<CAP)item.snap=takeSnap(s);
+}
+
+/* ---------- Bausteine für Blüten ---------- */
+/* Blütenblätter: Reihe von Blättern, die vom Zentrum nach außen zeigen */
+function petals(F,o,sc,P,cb){
+  const th=P.t0+(P.t1-P.t0)*o;
+  const ns=Math.max(5,Math.ceil(P.L*sc/STEP)), nw=Math.max(2,Math.ceil(P.W*sc*2/STEP));
+  const u=F.u,v=F.v,n=F.n,c=F.c, ed=P.ed===undefined?0.38:P.ed;
+  for(let k=0;k<P.cnt;k++){
+    const a=P.off+F.roll+k*TAU/P.cnt, ca=Math.cos(a), sa=Math.sin(a);
+    const rx=ca*u[0]+sa*v[0], ry=ca*u[1]+sa*v[1], rz=ca*u[2]+sa*v[2];
+    const wx=-sa*u[0]+ca*v[0], wy=-sa*u[1]+ca*v[1], wz=-sa*u[2]+ca*v[2];
+    for(let i=1;i<=ns;i++){
+      const s=i/ns, t=th+P.curl*s, st=Math.sin(t), ct=Math.cos(t);
+      const dx=st*rx+ct*n[0], dy=st*ry+ct*n[1], dz=st*rz+ct*n[2];
+      const rad=(P.r0+s*P.L)*sc;
+      const px=c[0]+rad*dx, py=c[1]+rad*dy, pz=c[2]+rad*dz;
+      const prof=Math.pow(Math.abs(Math.sin(Math.PI*Math.pow(s,P.wp))),P.we)*P.W*sc;
+      for(let j=0;j<=nw;j++){
+        const w=(j/nw)*2-1, aw=Math.abs(w), hh=hash(k*977+i*31+j*7+F.seed);
+        if(P.rag&&s>0.72&&Math.sin(w*9+k)<-0.1)continue;
+        let ci=cb, gl=0;
+        let li=0.22+0.62*Math.pow(s,0.85)+P.lo+(hh-0.5)*0.26-(aw<0.12?0.14:0);
+        if(ed)li-=ed*Math.max(Math.pow(aw,5),Math.pow(s,12));
+        if(P.vn&&Math.abs(Math.sin(w*9))>0.94)li-=0.22;
+        if(P.thr&&s<P.thr){ci=P.th;li=0.5+0.4*hh;}
+        else if(P.bd&&aw<0.17&&s<P.bds){ci=P.bd;li=0.6+0.3*hh;}
+        else if(P.sp&&s>0.15&&s<0.75&&aw<0.85&&hash(k*55+i*7+j*13+F.seed)>1-P.spd){ci=P.sp;li=0.4;gl=G.o;}
+        const ex=P.rf?P.rf*sc*Math.sin(w*5+s*9+k*1.3)*Math.pow(s,1.4):0;
+        add(px+w*prof*wx+ex*n[0],py+w*prof*wy+ex*n[1],pz+w*prof*wz+ex*n[2],li,ci+shade(li),gl);
+      }
+    }
+  }
+}
+/* Kelch (Tulpe) oder Trompete (Narzisse) */
+function cup(F,o,sc,P,cb){
+  const Hc=P.H*sc, Rm=P.R*sc*(P.o0+(1-P.o0)*o);
+  const half0=P.full?Math.PI:Math.PI/P.cnt*P.cov;
+  const ns=Math.max(8,Math.ceil(Hc/STEP)), nw=Math.max(3,Math.ceil(half0*2*Rm/STEP));
+  const u=F.u,v=F.v,n=F.n,c=F.c;
+  for(let k=0;k<P.cnt;k++){
+    const a0=P.off+F.roll+k*TAU/P.cnt;
+    for(let i=1;i<=ns;i++){
+      const s=i/ns, sm=Math.sin(Math.PI*Math.min(1,s*1.05)*0.85);
+      const r=Rm*(P.rb+(1-P.rb)*sm)+Rm*P.flare*o*Math.pow(Math.max(0,s-0.6)/0.4,2);
+      let half=half0;
+      if(!P.full){
+        const mid=Math.pow(Math.abs(Math.sin(Math.PI*Math.pow(s,P.tp))),P.tw);
+        half=half0*(P.hb+(1-P.hb)*mid)*(1-0.9*smooth((s-0.8)/0.2));
+      }
+      for(let j=0;j<=nw;j++){
+        const w=(j/nw)*2-1, phi=a0+w*half, hh=hash(k*977+i*31+j*7+F.seed);
+        let h=s*Hc;
+        if(P.fr)h+=P.fr*sc*Math.sin(phi*P.fn)*smooth((s-0.8)/0.2);
+        const x=r*Math.cos(phi), y=r*Math.sin(phi);
+        let li=0.25+0.5*s+P.lo+(hh-0.5)*0.22;
+        if(!P.full){li-=0.35*Math.pow(Math.abs(w),5);if(Math.abs(w)<0.12)li+=0.1;}
+        add(c[0]+x*u[0]+y*v[0]+h*n[0],c[1]+x*u[1]+y*v[1]+h*n[1],c[2]+x*u[2]+y*v[2]+h*n[2],li,cb+shade(li),0);
+      }
+    }
+  }
+}
+/* Mittelscheibe mit Samenspirale (Sonnenblume, Margerite, Gerbera) */
+function seedDisc(F,sc,rad,hgt,cb,cb2,ring,lo){
+  const R=rad*sc, M=Math.ceil(Math.PI*R*R/(STEP*STEP*0.7)), u=F.u,v=F.v,n=F.n,c=F.c;
+  for(let i=1;i<=M;i++){
+    const f=i/M, r=R*Math.sqrt(f), a=i*2.39996+F.roll, ca=Math.cos(a)*r, sa=Math.sin(a)*r;
+    const hv=hgt*sc*(1-f), outer=f>ring;
+    const li=clamp(lo+0.35*hash(i*3.7+F.seed)+(outer?0.25:0)+0.2*f,0,1);
+    add(c[0]+ca*u[0]+sa*v[0]+hv*n[0],c[1]+ca*u[1]+sa*v[1]+hv*n[1],c[2]+ca*u[2]+sa*v[2]+hv*n[2],li,(outer?cb2:cb)+shade(li),(i%13<4)?G.o:G.at);
+  }
+}
+function disc(F,sc,rad,hgt,cb,lo){
+  const R=rad*sc, nr=Math.max(1,Math.ceil(R/STEP)), u=F.u,v=F.v,n=F.n,c=F.c;
+  for(let j=0;j<=nr;j++){
+    const r=j/nr*R, np=j?Math.ceil(TAU*r/STEP):1;
+    for(let b=0;b<np;b++){
+      const a=b/np*TAU+j*0.7, ca=Math.cos(a)*r, sa=Math.sin(a)*r;
+      const hv=hgt*sc*(1-(r/R)*(r/R));
+      const li=clamp(lo+0.45*(r/R)+0.35*hash(j*53+b+F.seed),0,1);
+      add(c[0]+ca*u[0]+sa*v[0]+hv*n[0],c[1]+ca*u[1]+sa*v[1]+hv*n[1],c[2]+ca*u[2]+sa*v[2]+hv*n[2],li,cb+shade(li),0);
+    }
+  }
+}
+/* Ring aus kleinen Punkten (Staubblätter) */
+function ring(F,sc,rad,hgt,cnt,cb,gl,li){
+  for(let q=0;q<cnt;q++){
+    const a=q*TAU/cnt+F.roll, r=rad*sc, ca=Math.cos(a)*r, sa=Math.sin(a)*r, h=hgt*sc;
+    add(F.c[0]+ca*F.u[0]+sa*F.v[0]+h*F.n[0],F.c[1]+ca*F.u[1]+sa*F.v[1]+h*F.n[1],F.c[2]+ca*F.u[2]+sa*F.v[2]+h*F.n[2],li,cb+shade(li),gl);
+  }
+}
+/* Fransen/Borsten, die von der Mitte nach außen stehen */
+function fuzz(F,sc,r0,r1,hgt,cnt,cb,li){
+  for(let q=0;q<cnt;q++){
+    const a=q*TAU/cnt+F.roll;
+    for(let r=r0;r<=r1;r+=STEP/sc*1.3){
+      const rr=r*sc, ca=Math.cos(a)*rr, sa=Math.sin(a)*rr, h=hgt*sc;
+      add(F.c[0]+ca*F.u[0]+sa*F.v[0]+h*F.n[0],F.c[1]+ca*F.u[1]+sa*F.v[1]+h*F.n[1],F.c[2]+ca*F.u[2]+sa*F.v[2]+h*F.n[2],li+0.3*(r-r0)/(r1-r0),cb+shade(li),G.dot);
+    }
+  }
+}
+/* Einzelne kleine Blüte (Hortensie, Rittersporn) */
+function floret(cx,cy,cz,nx,ny,nz,r,lobes,cb,cc,liBase,seed){
+  const rx=Math.abs(ny)<0.9?0:1, ry=Math.abs(ny)<0.9?1:0;
+  let ux=ny*0-nz*ry, uy=nz*rx-nx*0, uz=nx*ry-ny*rx; const ul=Math.hypot(ux,uy,uz)||1; ux/=ul;uy/=ul;uz/=ul;
+  const vx=ny*uz-nz*uy, vy=nz*ux-nx*uz, vz=nx*uy-ny*ux, na=lobes*3;
+  for(let q=0;q<na;q++){
+    const a=q/na*TAU, rl=r*(0.74+0.26*Math.cos(lobes*a));
+    for(let t=1;t<=3;t++){
+      const rad=rl*t/3, ca=Math.cos(a)*rad, sa=Math.sin(a)*rad, hv=(1-t/3)*r*0.25;
+      const li=clamp(liBase+0.06*t+(hash(seed+q*3+t)-0.5)*0.2,0,1);
+      add(cx+ca*ux+sa*vx+hv*nx,cy+ca*uy+sa*vy+hv*ny,cz+ca*uz+sa*vz+hv*nz,li,cb+shade(li),0);
+    }
+  }
+  add(cx+nx*r*0.25,cy+ny*r*0.25,cz+nz*r*0.25,0.9,cc+4,G.dot);
+}
+function stamens(F,o,sc){
+  if(o<0.45)return;
+  const k=smooth((o-0.45)/0.5), u=F.u,v=F.v,n=F.n,c=F.c;
+  for(let i=0;i<5;i++){
+    const a=F.roll+i*TAU/5+0.3, ca=Math.cos(a), sa=Math.sin(a), th=0.35+0.2*k, st=Math.sin(th), ct=Math.cos(th);
+    const dx=st*(ca*u[0]+sa*v[0])+ct*n[0], dy=st*(ca*u[1]+sa*v[1])+ct*n[1], dz=st*(ca*u[2]+sa*v[2])+ct*n[2];
+    const L=0.24*sc*k;
+    for(let m=0.04*sc;m<L;m+=STEP){add(c[0]+dx*m,c[1]+dy*m,c[2]+dz*m,0.55+0.25*hash(i*91+m*500),STAM+3,0);}
+    for(let q=0;q<6;q++){add(c[0]+dx*L+(hash(i*7+q)-0.5)*0.035*sc,c[1]+dy*L+(hash(i*9+q)-0.5)*0.035*sc,c[2]+dz*L+(hash(i*11+q)-0.5)*0.035*sc,0.3,DSP+1,G.at);}
+  }
+}
+/* Lavendel: Ähre aus Quirlen */
+function whorls(F,o,sc,len,rb,cb){
+  const L=len*sc*(0.3+0.7*o), step=0.034*sc, nW=Math.floor(L/step), u=F.u,v=F.v,n=F.n,c=F.c;
+  for(let m=0;m<=L;m+=STEP){add(c[0]+n[0]*m,c[1]+n[1]*m,c[2]+n[2]*m,0.4+0.3*hash(m*977+F.seed),STEM+2,0);}
+  for(let i=0;i<=nW;i++){
+    const s=i/Math.max(1,nW), m=s*L, rad=rb*sc*(1-0.5*s)*(0.5+0.5*o);
+    for(let f=0;f<6;f++){
+      const a=F.roll+f*TAU/6+i*0.8, ca=Math.cos(a)*rad, sa=Math.sin(a)*rad;
+      const bx=c[0]+n[0]*m+ca*u[0]+sa*v[0], by=c[1]+n[1]*m+ca*u[1]+sa*v[1], bz=c[2]+n[2]*m+ca*u[2]+sa*v[2];
+      const li=0.35+0.45*s+0.2*hash(i*5+f+F.seed);
+      add(bx,by,bz,li,cb+shade(li),G.o);
+      add(bx+n[0]*0.014*sc,by+n[1]*0.014*sc,bz+n[2]*0.014*sc,li+0.1,cb+shade(li+0.1),G.star);
+      add(bx+(ca*u[0]+sa*v[0])*0.5,by+(ca*u[1]+sa*v[1])*0.5,bz+(ca*u[2]+sa*v[2])*0.5,li-0.1,cb+shade(li-0.1),G.dot);
+    }
+  }
+}
+
+/* ---------- Blumenarten ---------- */
+const KIND={
+  lily:(F,o,sc,cb)=>{
+    const A={cnt:3,r0:0,L:.30,W:.075,t0:.08,t1:1.12,curl:.55,off:0,wp:.78,we:1,lo:0,th:THR,thr:.2,sp:DSP,spd:.1,ed:.3};
+    petals(F,o,sc,A,cb);
+    petals(F,o,sc,{cnt:3,r0:0,L:.27,W:.088,t0:.06,t1:.95,curl:.5,off:Math.PI/3,wp:.78,we:1,lo:-.06,th:THR,thr:.2,sp:DSP,spd:.14,ed:.3},cb);
+    stamens(F,o,sc);
+  },
+  tulip:(F,o,sc,cb)=>{
+    cup(F,o,sc,{cnt:3,H:.34,R:.15,rb:.35,o0:.62,flare:.35,cov:1.08,off:0,lo:0,hb:.55,tp:1,tw:.6},cb);
+    cup(F,o,sc,{cnt:3,H:.32,R:.14,rb:.35,o0:.62,flare:.3,cov:1.08,off:Math.PI/3,lo:-.08,hb:.55,tp:1,tw:.6},cb);
+  },
+  rose:(F,o,sc,cb)=>{
+    for(let k=3;k>=0;k--){
+      petals(F,o,sc,{cnt:5,r0:0,L:.1+.05*k,W:.06+.022*k,t0:.07+.04*k,t1:.3+.3*k,curl:-.1,off:k*.63,wp:1,we:.5,lo:-.2+.07*k,rf:.012,ed:.4},cb);
+    }
+  },
+  daisy:(F,o,sc,cb)=>{
+    petals(F,o,sc,{cnt:22,r0:.06,L:.22,W:.026,t0:.15,t1:1.45,curl:.05,off:0,wp:.8,we:.8,lo:.1,ed:.15},cb);
+    petals(F,o,sc,{cnt:22,r0:.06,L:.18,W:.026,t0:.15,t1:1.38,curl:.05,off:Math.PI/22,wp:.8,we:.8,lo:0,ed:.15},cb);
+    seedDisc(F,sc,.07,.035,DYEL,STAM,.7,.35);
+  },
+  sunflower:(F,o,sc,cb)=>{
+    petals(F,o,sc,{cnt:24,r0:.16,L:.17,W:.04,t0:.1,t1:1.3,curl:.1,off:0,wp:.7,we:.8,lo:.05,ed:.2},cb);
+    petals(F,o,sc,{cnt:24,r0:.16,L:.15,W:.04,t0:.1,t1:1.22,curl:.1,off:TAU/48,wp:.7,we:.8,lo:-.05,ed:.2},cb);
+    seedDisc(F,sc,.17,.05,DBRN,STAM,.8,.15);
+  },
+  poppy:(F,o,sc,cb)=>{
+    petals(F,o,sc,{cnt:4,r0:0,L:.24,W:.16,t0:.05,t1:.95,curl:.35,off:0,wp:1,we:.45,lo:0,rf:.04,ed:.3},cb);
+    petals(F,o,sc,{cnt:4,r0:0,L:.21,W:.15,t0:.05,t1:.8,curl:.3,off:Math.PI/4,wp:1,we:.45,lo:-.08,rf:.04,ed:.3},cb);
+    if(o>0.3){disc(F,sc,.04,.03,DDARK,.3);ring(F,sc,.075,.03,24,DDARK,G.o,.3);}
+  },
+  gerbera:(F,o,sc,cb)=>{
+    petals(F,o,sc,{cnt:18,r0:.06,L:.26,W:.04,t0:.15,t1:1.4,curl:.05,off:0,wp:.8,we:.7,lo:.1,ed:.2},cb);
+    petals(F,o,sc,{cnt:18,r0:.06,L:.22,W:.04,t0:.15,t1:1.32,curl:.05,off:Math.PI/18,wp:.8,we:.7,lo:-.02,ed:.2},cb);
+    seedDisc(F,sc,.075,.04,DDARK,DYEL,.55,.3);
+  },
+  daffodil:(F,o,sc,cb)=>{
+    petals(F,o,sc,{cnt:6,r0:0,L:.22,W:.08,t0:.1,t1:1.3,curl:.08,off:0,wp:.9,we:.6,lo:0,ed:.3},cb);
+    cup(F,o,sc,{cnt:1,full:1,H:.17,R:.075,rb:.75,o0:.5,flare:.55,cov:1,off:0,lo:.1,fr:.018,fn:11},OR);
+  },
+  lavender:(F,o,sc,cb)=>{whorls(F,o,sc,.5,.04,cb);},
+  delphinium:(F,o,sc,cb)=>{
+    const nT=26, len=.55*sc, nF=Math.max(1,Math.floor(nT*(0.2+0.8*o)));
+    for(let m=0;m<=len*(0.3+0.7*o);m+=STEP){add(F.c[0]+F.n[0]*m,F.c[1]+F.n[1]*m,F.c[2]+F.n[2]*m,0.4+0.3*hash(m*977+F.seed),STEM+2,0);}
+    for(let i=0;i<nF;i++){
+      const s=i/nT, m=s*len*(0.3+0.7*o), a=F.roll+i*2.39996, ca=Math.cos(a), sa=Math.sin(a);
+      const rx=ca*F.u[0]+sa*F.v[0], ry=ca*F.u[1]+sa*F.v[1], rz=ca*F.u[2]+sa*F.v[2];
+      const nx=rx*0.9+F.n[0]*0.4, ny=ry*0.9+F.n[1]*0.4, nz=rz*0.9+F.n[2]*0.4, nl=Math.hypot(nx,ny,nz);
+      const bud=i>nT-5, r=(bud?0.022:0.043)*(1-0.5*s)*sc, rad=0.022*sc;
+      floret(F.c[0]+F.n[0]*m+rx*rad,F.c[1]+F.n[1]*m+ry*rad,F.c[2]+F.n[2]*m+rz*rad,nx/nl,ny/nl,nz/nl,r,bud?3:5,cb,PAPER,0.4+0.3*hash(i*3+F.seed)+0.25*(1-s),F.seed+i);
+    }
+  },
+  hydrangea:(F,o,sc,cb)=>{
+    const R=.22*sc*(0.55+0.45*o), rf=.045*sc, nF=Math.max(8,Math.ceil(2*R*R/(rf*rf*1.1)));
+    for(let i=0;i<nF;i++){
+      const y=1-(i+0.5)/nF, r=Math.sqrt(1-y*y), a=i*2.39996+F.roll;
+      const lx=Math.cos(a)*r, lz=Math.sin(a)*r, ly=y*0.9;
+      const px=lx*F.u[0]+lz*F.v[0]+ly*F.n[0], py=lx*F.u[1]+lz*F.v[1]+ly*F.n[1], pz=lx*F.u[2]+lz*F.v[2]+ly*F.n[2];
+      floret(F.c[0]+px*R,F.c[1]+py*R,F.c[2]+pz*R,px,py,pz,rf,4,cb,PAPER,0.35+0.45*hash(i*7+F.seed),F.seed+i*5);
+    }
+  },
+  cornflower:(F,o,sc,cb)=>{
+    petals(F,o,sc,{cnt:13,r0:.03,L:.14,W:.032,t0:.3,t1:1.1,curl:.15,off:0,wp:.6,we:.6,lo:.05,rag:1,ed:.2},cb);
+    petals(F,o,sc,{cnt:9,r0:.02,L:.1,W:.03,t0:.2,t1:.85,curl:.15,off:.3,wp:.6,we:.6,lo:-.1,rag:1,ed:.2},cb);
+    disc(F,sc,.035,.025,DPUR,.3);
+    fuzz(F,sc,.01,.045,.03,14,DPUR,.4);
+  },
+  iris:(F,o,sc,cb)=>{
+    petals(F,o,sc,{cnt:3,r0:0,L:.24,W:.1,t0:.05,t1:.4,curl:-.25,off:0,wp:1.2,we:.5,lo:.05,vn:1,ed:.25},cb);
+    petals(F,o,sc,{cnt:3,r0:0,L:.28,W:.115,t0:.55,t1:1.55,curl:.7,off:Math.PI/3,wp:1,we:.5,lo:-.08,vn:1,rf:.025,bd:BEARD,bds:.55,ed:.3},cb);
+  },
+  lotus:(F,o,sc,cb)=>{
+    for(let k=2;k>=0;k--){
+      petals(F,o,sc,{cnt:8,r0:0,L:.17+.05*k,W:.055+.01*k,t0:.1+.06*k,t1:.5+.35*k,curl:-.05,off:k*.4,wp:.75,we:1,lo:-.1+.08*k,ed:.3},cb);
+    }
+    disc(F,sc,.035,.025,DYEL,.45);
+    if(o>0.5)ring(F,sc,.07,.03,14,STAM,G.o,.6);
+  },
+  peony:(F,o,sc,cb)=>{
+    for(let k=3;k>=0;k--){
+      petals(F,o,sc,{cnt:6,r0:0,L:.1+.06*k,W:.075+.02*k,t0:.08+.04*k,t1:.3+.3*k,curl:-.1,off:k*.9,wp:1,we:.5,lo:-.2+.07*k,rf:.018,ed:.4},cb);
+    }
+  },
+  anemone:(F,o,sc,cb)=>{
+    petals(F,o,sc,{cnt:7,r0:.03,L:.2,W:.105,t0:.1,t1:1.3,curl:.08,off:0,wp:1,we:.45,lo:0,ed:.3},cb);
+    disc(F,sc,.05,.03,DDARK,.25);
+    if(o>0.4)fuzz(F,sc,.05,.1,.03,28,DPUR,.35);
+  }
+};
+/* sz: Größenausgleich, lf: Blätter (Anzahl, Ansatz am Stiel, Länge, Breite, Steigung, Hängen) */
+const KINDS=[
+  {id:'lily',name:'Lilie',sig:'*',sz:.95,lf:{n:4,u:[.2,.55],L:[.3,.45],W:[.03,.045],e:[.5,.9],d:.8}},
+  {id:'tulip',name:'Tulpe',sig:'Y',sz:1.15,thick:1,lf:{n:2,u:[.25,.35],L:[.5,.65],W:[.1,.13],e:[.9,1.2],d:1.3}},
+  {id:'rose',name:'Rose',sig:'@',sz:1.2,thorn:1,lf:{n:3,u:[.3,.6],L:[.14,.2],W:[.07,.09],e:[.4,.8],d:.5}},
+  {id:'daisy',name:'Margerite',sig:'o',sz:1,lf:{n:2,u:[.3,.5],L:[.2,.3],W:[.03,.045],e:[.5,.9],d:.8}},
+  {id:'sunflower',name:'Sonnenblume',sig:'O',sz:.9,thick:1,lf:{n:2,u:[.35,.55],L:[.3,.4],W:[.14,.18],e:[.2,.5],d:1}},
+  {id:'poppy',name:'Mohn',sig:'%',sz:.95,lf:{n:2,u:[.3,.5],L:[.28,.36],W:[.06,.08],e:[.3,.7],d:.8}},
+  {id:'gerbera',name:'Gerbera',sig:'#',sz:.95,lf:{n:2,u:[.1,.2],L:[.35,.45],W:[.08,.1],e:[.7,1],d:1}},
+  {id:'daffodil',name:'Narzisse',sig:'U',sz:1.1,lf:{n:2,u:[.1,.25],L:[.5,.6],W:[.035,.045],e:[1.1,1.3],d:.6}},
+  {id:'lavender',name:'Lavendel',sig:'!',sz:1.1,lf:{n:3,u:[.1,.3],L:[.35,.45],W:[.012,.016],e:[.8,1.2],d:.8}},
+  {id:'delphinium',name:'Rittersporn',sig:'I',sz:1,lf:{n:3,u:[.3,.5],L:[.2,.3],W:[.07,.09],e:[.3,.7],d:.5}},
+  {id:'hydrangea',name:'Hortensie',sig:'8',sz:1.05,thick:1,lf:{n:2,u:[.35,.5],L:[.28,.34],W:[.12,.15],e:[.2,.5],d:.8}},
+  {id:'cornflower',name:'Kornblume',sig:'x',sz:1.4,lf:{n:3,u:[.2,.6],L:[.25,.35],W:[.015,.02],e:[.5,1],d:.8}},
+  {id:'iris',name:'Iris',sig:'W',sz:1,lf:{n:3,u:[.1,.3],L:[.6,.75],W:[.04,.055],e:[1.25,1.45],d:.2}},
+  {id:'lotus',name:'Lotus',sig:'V',sz:1.05,lf:{n:2,u:[.3,.5],L:[.28,.34],W:[.12,.15],e:[.2,.5],d:1}},
+  {id:'peony',name:'Pfingstrose',sig:'&',sz:1.2,lf:{n:3,u:[.3,.5],L:[.22,.3],W:[.08,.1],e:[.4,.8],d:.6}},
+  {id:'anemone',name:'Anemone',sig:'+',sz:1.1,lf:{n:2,u:[.3,.5],L:[.2,.3],W:[.08,.1],e:[.4,.8],d:.6}}
+];
+const KD={};KINDS.forEach(k=>{KD[k.id]=k;});
+
+/* ---------- Stiele, Blätter, Verpackung ---------- */
+function bez(F,u){
+  const m=1-u,a=m*m*m,b=3*m*m*u,c=3*m*u*u,d=u*u*u,p=F.P;
+  return [a*p[0][0]+b*p[1][0]+c*p[2][0]+d*p[3][0],a*p[0][1]+b*p[1][1]+c*p[2][1]+d*p[3][1],a*p[0][2]+b*p[1][2]+c*p[2][2]+d*p[3][2]];
+}
+function dbez(F,u){
+  const m=1-u,a=3*m*m,b=6*m*u,c=3*u*u,p=F.P;
+  const x=a*(p[1][0]-p[0][0])+b*(p[2][0]-p[1][0])+c*(p[3][0]-p[2][0]);
+  const y=a*(p[1][1]-p[0][1])+b*(p[2][1]-p[1][1])+c*(p[3][1]-p[2][1]);
+  const z=a*(p[1][2]-p[0][2])+b*(p[2][2]-p[1][2])+c*(p[3][2]-p[2][2]);
+  const l=Math.hypot(x,y,z)||1;
+  return [x/l,y/l,z/l];
+}
+function stem(F,g){
+  const ns=Math.ceil(g*2.0/STEP), th=F.kd.thick?0.011:0;
+  for(let i=0;i<=ns;i++){
+    const u=g*i/ns, p=bez(F,u), t=dbez(F,u), li=0.45+0.4*hash(i*3+F.seed), ci=STEM+shade(li);
+    addT(p[0],p[1],p[2],t[0],t[1],t[2],li,ci);
+    if(th&&i%2===0){
+      addT(p[0]+th,p[1],p[2],t[0],t[1],t[2],li,ci);addT(p[0]-th,p[1],p[2],t[0],t[1],t[2],li,ci);
+      addT(p[0],p[1],p[2]+th,t[0],t[1],t[2],li,ci);addT(p[0],p[1],p[2]-th,t[0],t[1],t[2],li,ci);
+    }
+  }
+  if(F.kd.thorn){
+    for(let q=0;q<6;q++){
+      const u=0.3+q*0.11; if(g<u)continue;
+      const p=bez(F,u), a=F.seed*(q+1);
+      add(p[0]+0.014*Math.cos(a),p[1]+0.004,p[2]+0.014*Math.sin(a),0.8,STEM+5,G.up);
+    }
+  }
+  if(g<0.98){const p=bez(F,g);add(p[0],p[1],p[2],1,STEM+5,G.at);}
+}
+function leaf(sx,sy,sz,dx,dy,dz,L,W,droop,g,seed,cb){
+  const dl=Math.hypot(dx,dy,dz)||1; dx/=dl;dy/=dl;dz/=dl;
+  let px=-dz,pz=dx,pl=Math.hypot(px,pz);
+  if(pl<1e-3){px=1;pz=0;pl=1;} px/=pl;pz/=pl;
+  const len=L*g, wm=W*g;
+  const ns=Math.max(4,Math.ceil(len/STEP)), nw=Math.max(2,Math.ceil(wm*2/STEP));
+  for(let i=1;i<=ns;i++){
+    const s=i/ns, prof=Math.pow(Math.abs(Math.sin(Math.PI*Math.pow(s,0.8))),0.9)*wm;
+    const bx=sx+dx*s*len, by=sy+dy*s*len-droop*s*s*len*0.4, bz=sz+dz*s*len;
+    for(let j=0;j<=nw;j++){
+      const w=(j/nw)*2-1, hh=hash(seed+i*13+j*3);
+      let li=0.35+0.3*(1-Math.abs(w))+0.2*s+(hh-0.5)*0.3;
+      if(Math.abs(w)<0.1)li+=0.2;
+      add(bx+px*w*prof,by,bz+pz*w*prof,li,cb+shade(li),0);
+    }
+  }
+}
+function cone(t){
+  const cg=smooth(t/1.5);
+  if(cg<=0)return;
+  const nh=Math.round(0.8/STEP*0.9);
+  for(let a=0;a<=nh;a++){
+    const h=a/nh; if(h>cg)break;
+    const y=-1+0.8*h, r=0.42*h;
+    if(r<0.004){add(0,y,0,0.8,PAPER+4,G.dash);continue;}
+    const np=Math.max(4,Math.ceil(TAU*r/(STEP*1.05)));
+    for(let b=0;b<np;b++){
+      const phi=b/np*TAU, stripe=Math.floor(h*13+phi/TAU*4), hh=hash(a*131+b*17), odd=stripe&1;
+      const li=0.45+0.5*hh;
+      add(r*Math.cos(phi),y,r*Math.sin(phi),li,(odd?PAPERG:PAPER)+shade(li),(hh>0.82)?G.colon:G.dash);
+    }
+  }
+  if(cg>0.98){
+    const r=0.42, np=Math.ceil(TAU*r/(STEP*1.2));
+    for(let b=0;b<np;b++){const phi=b/np*TAU;add(r*Math.cos(phi),-0.2,r*Math.sin(phi),0.9,PAPER+5,G.star);}
+  }
+  if(cg>0.6){
+    const rg=smooth((cg-0.6)/0.4);
+    for(let h=0.545;h<=0.585;h+=STEP*0.45){
+      const r=0.42*h+0.014, y=-1+0.8*h, np=Math.ceil(TAU*r/STEP), lim=Math.floor(np*rg);
+      for(let b=0;b<lim;b++){const phi=b/np*TAU, hh=hash(b*3+h*1000);add(r*Math.cos(phi),y,r*Math.sin(phi),0.55+0.4*hh,RIB+4,hh>0.5?G.at:G.pct);}
+    }
+    if(rg>0.95){
+      const yk=-0.55, zk=0.42*0.5625+0.03;
+      for(let sd=-1;sd<=1;sd+=2){
+        const R=sd*0.3, cr=Math.cos(R), sr=Math.sin(R);
+        for(let q=0;q<2;q++){
+          const sc=q?0.55:1;
+          for(let th=0;th<TAU;th+=STEP*8){
+            const lx=0.08*sc*Math.cos(th), ly=0.04*sc*Math.sin(th);
+            add(sd*0.08+lx*cr-ly*sr,yk+0.02+lx*sr+ly*cr,zk+0.01+q*0.005,0.7,RIB+(q?3:5),q?G.pct:G.at);
+          }
+        }
+        for(let m=0;m<=1;m+=STEP*3){
+          const x=sd*0.07*m, y=yk-0.2*m, zz=0.42*((y+1)/0.8)+0.03;
+          add(x,y,zz,0.8,RIB+4,G.at);
+          add(x+sd*0.015,y,zz,0.6,RIB+3,G.pct);
+        }
+      }
+      for(let a=0;a<TAU;a+=0.35){for(let r=0;r<=0.03;r+=0.01){add(r*Math.cos(a),yk+0.015+r*Math.sin(a),zk+0.02,1,RIB+5,G.at);}}
+    }
+  }
+}
+
+/* ---------- Plan (zufällige Zusammenstellung) ---------- */
+let plan=null;
+function makePlan(cols,kinds,count,seed){
+  rng=mulberry32(seed);
+  const n=count, R=0.5+0.09*Math.sqrt(n), size=clamp(Math.sqrt(11/n),0.68,1.2);
+  const cdeck=[],kdeck=[];
+  for(let i=0;i<n;i++){cdeck.push(cols[i%cols.length]);kdeck.push(kinds[i%kinds.length]);}
+  shuffle(cdeck);shuffle(kdeck);
+  const stagger=Math.min(0.2,2.4/n);
+  const flowers=[];
+  let T=0;
+  for(let i=0;i<n;i++){
+    const kd=kdeck[i];
+    const rr=R*Math.sqrt((i+0.5)/n), a=i*2.39996+rng()*0.4;
+    const hx=rr*Math.cos(a), hz=rr*Math.sin(a), hy=0.98-0.5*Math.pow(rr/R,2)+(rng()-0.5)*0.1;
+    let dx=hx*1.3,dy=1,dz=hz*1.3; const dl=Math.hypot(dx,dy,dz); dx/=dl;dy/=dl;dz/=dl;
+    const ref=Math.abs(dz)>0.9?[1,0,0]:[0,0,1];
+    let ux=dy*ref[2]-dz*ref[1], uy=dz*ref[0]-dx*ref[2], uz=dx*ref[1]-dy*ref[0]; const ul=Math.hypot(ux,uy,uz); ux/=ul;uy/=ul;uz/=ul;
+    const vx=dy*uz-dz*uy, vy=dz*ux-dx*uz, vz=dx*uy-dy*ux;
+    const bx=(rng()-0.5)*0.05, bz=(rng()-0.5)*0.05;
+    const d=0.6+i*stagger+rng()*0.12, sd=2.0+rng()*0.5, od=d+sd*0.8, odur=1.5+rng()*0.4;
+    const F={
+      kind:kd.id, kd:kd, cb:cdeck[i].b, size:size*kd.sz*rnd(0.92,1.08), seed:rng()*1000, roll:rng()*TAU,
+      n:[dx,dy,dz],u:[ux,uy,uz],v:[vx,vy,vz],c:[hx,hy,hz],
+      P:[[bx,-0.9,bz],[bx+hx*0.12,-0.35,bz+hz*0.12],[hx-dx*0.45,hy-dy*0.45,hz-dz*0.45],[hx,hy,hz]],
+      d:d,sd:sd,od:od,odur:odur,leaves:[],snap:null
+    };
+    const lf=kd.lf;
+    for(let k=0;k<lf.n;k++){
+      const ang=rng()*TAU, e=rnd(lf.e[0],lf.e[1]), ce=Math.cos(e);
+      F.leaves.push({u0:rnd(lf.u[0],lf.u[1]),dx:Math.cos(ang)*ce,dy:Math.sin(e),dz:Math.sin(ang)*ce,L:rnd(lf.L[0],lf.L[1]),W:rnd(lf.W[0],lf.W[1]),d:lf.d,seed:rng()*1000});
+    }
+    flowers.push(F);
+    T=Math.max(T,od+odur);
+  }
+  const fillers=[], m=Math.round(6+n*0.5);
+  for(let i=0;i<m;i++){
+    const phi=i*TAU/m+rng()*0.4, e=rnd(0.45,1.15), ce=Math.cos(e);
+    const f={sx:0.3*Math.cos(phi),sy:-0.22,sz:0.3*Math.sin(phi),dx:Math.cos(phi)*ce,dy:Math.sin(e),dz:Math.sin(phi)*ce,L:rnd(0.5,0.95),W:rnd(0.05,0.09),d:0.5+rng()*1.8,dur:1.6+rng()*0.6,cb:rng()<0.5?LEAF:LEAFL,seed:rng()*1000,snap:null};
+    fillers.push(f);
+    T=Math.max(T,f.d+f.dur);
+  }
+  rng=Math.random;
+  return {flowers:flowers,fillers:fillers,cone:{snap:null},R:R,T:T+0.4};
+}
+function clearSnaps(){
+  if(!plan)return;
+  plan.cone.snap=null;
+  plan.fillers.forEach(f=>{f.snap=null;});
+  plan.flowers.forEach(f=>{f.snap=null;});
+}
+
+function buildFlower(F,t,g){
+  stem(F,g);
+  for(const L of F.leaves){
+    const lg=smooth((g-L.u0)/0.35);
+    if(lg>0.02){const s=bez(F,L.u0);leaf(s[0],s[1],s[2],L.dx,L.dy,L.dz,L.L,L.W,L.d,lg,L.seed,LEAF);}
+  }
+  const hg=smooth((g-0.55)/0.45);
+  if(hg>0.03){
+    const o=smooth((t-F.od)/F.odur), sc=F.size*hg*(0.42+0.58*o);
+    F.c=bez(F,g);
+    KIND[F.kind](F,o,sc,F.cb);
+  }
+}
+function buildScene(t){N=0;buildBouquet(t);}
+function buildBouquet(t){
+  cached(plan.cone,t>=1.5,()=>cone(t));
+  for(const f of plan.fillers){
+    cached(f,t>=f.d+f.dur,()=>{const g=smooth((t-f.d)/f.dur);if(g>0.02)leaf(f.sx,f.sy,f.sz,f.dx,f.dy,f.dz,f.L,f.W,1.2,g,f.seed,f.cb);});
+  }
+  for(const F of plan.flowers){
+    const g=smooth((t-F.d)/F.sd), done=t>=Math.max(F.d+F.sd,F.od+F.odur);
+    if(g<=0&&!F.snap)continue;
+    cached(F,done,()=>buildFlower(F,t,g));
+  }
+}
+
+/* ---------- Bote, Paket, Boden (Lieferszene) ---------- */
+const GY=-1;
+const lerp=(a,b,t)=>a+(b-a)*t;
+const JK=reg(172,80,42), PN=reg(228,45,32), SK=reg(24,70,66), KR=reg(32,50,46), KR2=reg(32,55,54), FLOOR=reg(190,60,40);
+const LV=[0.447,0.745,0.497];
+const lightN=(nx,ny,nz)=>0.28+0.55*Math.max(0,nx*LV[0]+ny*LV[1]+nz*LV[2]);
+let XF=null;
+function addX(x,y,z,li,ci,gl){
+  if(XF){const c=XF.c,s=XF.s,k=XF.k;const nx=XF.x+k*(x*c+z*s), nz=XF.z+k*(-x*s+z*c);y=XF.y+k*y;x=nx;z=nz;}
+  add(x,y,z,li,ci,gl);
+}
+function sphere(cx,cy,cz,r,cb,gl,minY){
+  const n=Math.max(12,Math.ceil(4*Math.PI*r*r/(STEP*STEP*0.8)));
+  for(let i=0;i<n;i++){
+    const y=1-2*(i+0.5)/n; if(minY!==undefined&&y<minY)continue;
+    const rr=Math.sqrt(1-y*y), a=i*2.39996, nx=rr*Math.cos(a), nz=rr*Math.sin(a);
+    const li=lightN(nx,y,nz)+(hash(i)-0.5)*0.15;
+    addX(cx+nx*r,cy+y*r,cz+nz*r,li,cb+shade(li),gl||0);
+  }
+}
+function capsule(x0,y0,z0,x1,y1,z1,r,cb){
+  const ax=x1-x0, ay=y1-y0, az=z1-z0, L=Math.hypot(ax,ay,az)||1e-3, dx=ax/L, dy=ay/L, dz=az/L;
+  let px,py=0,pz;
+  if(Math.abs(dy)<0.9){px=-dz;pz=dx;}else{px=1;pz=0;}
+  const pl=Math.hypot(px,pz)||1; px/=pl;pz/=pl;
+  const qx=dy*pz-dz*py, qy=dz*px-dx*pz, qz=dx*py-dy*px;
+  const ns=Math.max(2,Math.ceil(L/STEP)), nr=Math.max(6,Math.ceil(TAU*r/STEP));
+  for(let i=0;i<=ns;i++){
+    const t=i/ns;
+    for(let j=0;j<nr;j++){
+      const a=j/nr*TAU, ca=Math.cos(a), sa=Math.sin(a);
+      const nx=ca*px+sa*qx, ny=ca*py+sa*qy, nz=ca*pz+sa*qz;
+      const li=lightN(nx,ny,nz)+(hash(i*7+j)-0.5)*0.12;
+      addX(x0+ax*t+nx*r,y0+ay*t+ny*r,z0+az*t+nz*r,li,cb+shade(li),0);
+    }
+  }
+}
+function boxFaces(cx,cy,cz,sx,sy,sz,cb,o){
+  o=o||{};
+  const dims=[sx/2,sy/2,sz/2];
+  for(let ax=0;ax<3;ax++){
+    for(let sg=-1;sg<=1;sg+=2){
+      if(o.noTop&&ax===1&&sg===1)continue;
+      if(o.noBottom&&ax===1&&sg===-1)continue;
+      const a1=(ax+1)%3, a2=(ax+2)%3;
+      const n1=Math.max(2,Math.ceil(dims[a1]*2/STEP)), n2=Math.max(2,Math.ceil(dims[a2]*2/STEP));
+      const nrm=[0,0,0]; nrm[ax]=sg;
+      for(let i=0;i<=n1;i++){
+        const u=i/n1*2-1;
+        for(let j=0;j<=n2;j++){
+          const v=j/n2*2-1, p=[0,0,0];
+          p[ax]=sg*dims[ax]; p[a1]=u*dims[a1]; p[a2]=v*dims[a2];
+          let li=lightN(nrm[0],nrm[1],nrm[2])+(hash(i*13+j*7+ax*3+sg)-0.5)*0.18;
+          if(Math.max(Math.abs(u),Math.abs(v))>0.93)li-=0.22;
+          let ci=cb, gl=0;
+          if(o.ribbon){
+            const wx=Math.abs(p[0])<o.ribbon, wz=Math.abs(p[2])<o.ribbon;
+            if((ax!==0&&wx)||(ax!==2&&wz)){ci=RIB;li=0.55+0.35*hash(i+j*5);gl=G.at;}
+          }
+          addX(cx+p[0],cy+p[1],cz+p[2],li,ci+shade(li),gl);
+        }
+      }
+    }
+  }
+}
+function bow(cx,cy,cz,k){
+  for(let sd=-1;sd<=1;sd+=2){
+    const R=sd*0.45, cr=Math.cos(R), sr=Math.sin(R);
+    for(let q=0;q<2;q++){
+      const sc=q?0.55:1;
+      for(let th=0;th<TAU;th+=TAU*STEP/(0.45*k)){
+        const lx=0.1*k*sc*Math.cos(th), ly=0.05*k*sc*Math.sin(th);
+        addX(cx+sd*0.09*k+lx*cr-ly*sr,cy+0.03*k+lx*sr+ly*cr,cz,0.7,RIB+(q?3:5),q?G.pct:G.at);
+      }
+    }
+  }
+  for(let a=0;a<TAU;a+=0.6){for(let r=0;r<=0.035*k;r+=0.012){addX(cx+r*Math.cos(a),cy+0.02*k+r*Math.sin(a),cz+0.01,1,RIB+5,G.at);}}
+}
+/* Paket: e = 0 (klein, trägt der Bote) bis 1 (groß, steht am Boden); lidU = Deckel offen 0..1 */
+function giftBox(bx,by,bz,e,lidU){
+  const w=0.4+0.5*e, h=0.3+0.2*e;
+  boxFaces(bx,by,bz,w,h,w,KR,{noTop:true,ribbon:0.045});
+  if(lidU<1){
+    const ang=lidU*7, k=1-lidU*0.85;
+    XF={x:bx,y:by+h/2+0.04+lidU*1.1,z:bz,k:k,c:Math.cos(ang),s:Math.sin(ang)};
+    boxFaces(0,0,0,w+0.05,0.08,w+0.05,KR2,{ribbon:0.045});
+    bow(0,0.04,0,w*2);
+    XF=null;
+  }
+}
+function floorGrid(){
+  for(let x=-3;x<=3;x+=0.07){
+    for(const z of [-0.6,-0.25,0.1,0.8,1.15]){add(x,GY,z,0.35+0.25*hash(x*13+z*7),FLOOR+2,G.dot);}
+  }
+  for(let x=-3;x<=3;x+=STEP*2){add(x,GY,0.45,0.55,FLOOR+3,G.dash);}
+}
+function burst(age,cx,cy,cz){
+  if(age<0||age>1.7)return;
+  const cols=[RIB,DYEL,PAPER,STEM];
+  for(let i=0;i<40;i++){
+    const vx=(hash(i*3.1)-0.5)*1.6, vy=0.9+hash(i*5.3)*1.4, vz=(hash(i*7.7)-0.5)*1.6;
+    const li=clamp(1-age/1.7,0.15,1);
+    add(cx+vx*age,cy+vy*age-1.5*age*age,cz+vz*age,li,cols[i%4]+shade(li),[G.star,G.plus,G.dot][i%3]);
+  }
+}
+/* Bote: pose = {walk, carry, wave, tip}; ph = Schrittphase */
+function courier(x,z,dir,ph,pose,tau){
+  const bob=pose.walk?Math.abs(Math.sin(ph))*0.015:0, hipY=GY+0.5+bob;
+  for(let s=-1;s<=1;s+=2){
+    const sw=pose.walk?Math.sin(ph+(s>0?0:Math.PI))*0.5:0;
+    const fx=x+dir*0.5*Math.sin(sw), fy=hipY-0.5*Math.cos(sw);
+    capsule(x,hipY,z+s*0.075,fx,fy,z+s*0.075,0.045,PN);
+    boxFaces(fx+dir*0.045,fy-0.015,z+s*0.075,0.16,0.05,0.085,DDARK,{noBottom:true});
+  }
+  boxFaces(x,GY+0.69+bob,z,0.2,0.36,0.3,JK,{noBottom:true});
+  boxFaces(x-dir*0.17,GY+0.7+bob,z,0.1,0.28,0.24,OR,{});
+  floret(x,GY+0.74+bob,z+0.155,0,0,1,0.045,5,RIB,DYEL,0.7,7);
+  floret(x,GY+0.74+bob,z-0.155,0,0,-1,0.045,5,RIB,DYEL,0.7,9);
+  const hy=GY+0.99+bob;
+  sphere(x+dir*0.01,hy,z,0.085,SK);
+  sphere(x+dir*0.01,hy+0.02,z,0.1,JK,0,0.15);
+  for(let r=0.06;r<=0.17;r+=0.013){for(let a=-1.5;a<=1.5;a+=0.28/(r*8)){add(x+dir*(0.02+r*Math.cos(a)),hy+0.025,z+r*Math.sin(a),0.5+0.2*hash(r*99+a),JK+2,0);}}
+  add(x+dir*0.084,hy,z+0.04,0.2,DDARK+1,G.o);
+  add(x+dir*0.084,hy,z-0.04,0.2,DDARK+1,G.o);
+  const shY=GY+0.84+bob;
+  for(let s=-1;s<=1;s+=2){
+    const zs=z+s*0.17;
+    let hx,hyy,hz=zs;
+    if(pose.carry){hx=x+dir*0.4;hyy=GY+0.62+bob;hz=z+s*0.19;}
+    else if(pose.wave&&s>0){hx=x+dir*0.13;hyy=shY+0.2+0.05*Math.sin(tau*11);hz=zs+0.05;}
+    else if(pose.tip&&s>0){hx=x+dir*0.09;hyy=hy+0.08;hz=z+0.1;}
+    else{
+      const ang=pose.walk?Math.sin(ph+(s>0?Math.PI:0))*0.45:0;
+      hx=x+dir*0.3*Math.sin(ang);hyy=shY-0.3*Math.cos(ang);
+    }
+    capsule(x,shY,zs,hx,hyy,hz,0.035,JK);
+    sphere(hx,hyy,hz,0.042,SK);
+  }
+}
+const carryPos=(x,z,dir,bob)=>[x+dir*0.5,GY+0.62+bob,z];
+
+/* Szene: Ankunft des Boten beim Empfänger */
+const RC={A0:3.4,A1:4.3,OPEN:4.4,GROW:5.0,TURN:8.0};
+function buildReceive(tau){
+  N=0;floorGrid();
+  const z=0.45;
+  let x,dir=1,walk=false,ph=0;
+  if(tau<RC.A0){const u=tau/RC.A0;x=-2.2+1.58*(1-(1-u)*(1-u));walk=true;ph=tau*8;}
+  else if(tau<RC.A1){x=-0.62;}
+  else if(tau<5.3){const u=smooth((tau-RC.A1)/(5.3-RC.A1));x=-0.62-0.36*u;walk=u>0.02&&u<0.98;ph=-tau*6;}
+  else if(tau<RC.TURN){x=-0.98;}
+  else{const u=clamp((tau-RC.TURN)/2.8,0,1);dir=-1;x=-0.98-1.8*u*u;walk=true;ph=tau*8;}
+  const pose={walk:walk,carry:tau<RC.A0+0.35*(RC.A1-RC.A0),wave:tau>=5.3&&tau<7.4,tip:tau>=7.4&&tau<RC.TURN};
+  courier(x,z,dir,ph,pose,tau);
+  const bob=walk?Math.abs(Math.sin(ph))*0.015:0;
+  if(tau<RC.A0){
+    const c=carryPos(x,z,dir,bob);giftBox(c[0],c[1],c[2],0,0);
+  }else{
+    const u=clamp((tau-RC.A0)/(RC.A1-RC.A0),0,1), su=smooth(u), e=smooth((u-0.45)/0.55), h=0.3+0.2*e;
+    const bx=lerp(-0.12,0,su), bz=lerp(z,0,su), by=lerp(GY+0.62,GY+h/2,su)+0.4*Math.sin(Math.PI*su);
+    giftBox(bx,by,bz,e,smooth((tau-RC.OPEN)/0.8));
+    burst(tau-4.6,0,GY+0.5,0);
+  }
+  buildBouquet(clamp(tau-RC.GROW,0,plan.T));
+  return {x:x,z:z};
+}
+/* Szene: Bote holt das Paket ab */
+const SC={WALK:2.2,UNGROW:2.8,UNGROW_LEN:3.2,LID:6.0,HOP:6.7,GO:7.5,END:10.2};
+function buildSend(tau){
+  N=0;floorGrid();
+  const z=0.45;
+  let x,walk=false,ph=0;
+  if(tau<SC.WALK){const u=tau/SC.WALK;x=-2.2+1.22*(1-(1-u)*(1-u));walk=true;ph=tau*8;}
+  else if(tau<SC.GO){x=-0.98;}
+  else{const u=clamp((tau-SC.GO)/(SC.END-SC.GO),0,1);x=-0.98+3.8*u*u;walk=true;ph=tau*8;}
+  const pose={walk:walk,carry:tau>=6.9,wave:tau>=2.3&&tau<3.6,tip:false};
+  courier(x,z,1,ph,pose,tau);
+  const bob=walk?Math.abs(Math.sin(ph))*0.015:0;
+  if(tau<SC.HOP){
+    giftBox(0,GY+0.25,0,1,tau<SC.LID?1:1-smooth((tau-SC.LID)/0.7));
+  }else if(tau<SC.GO){
+    const u=(tau-SC.HOP)/(SC.GO-SC.HOP), su=smooth(u), e=1-smooth(u/0.55), h=0.3+0.2*e;
+    const tgt=carryPos(-0.98,z,1,0);
+    giftBox(lerp(0,tgt[0],su),lerp(GY+0.25,tgt[1],su)+0.4*Math.sin(Math.PI*su),lerp(0,tgt[2],su),e,0);
+  }else{
+    const c=carryPos(x,z,1,bob);giftBox(c[0],c[1],c[2],0,0);
+  }
+  const tb=tau<SC.UNGROW?plan.T:(tau<SC.UNGROW+SC.UNGROW_LEN?plan.T*(1-(tau-SC.UNGROW)/SC.UNGROW_LEN):0);
+  if(tb>0)buildBouquet(tb);
+  return {x:x,z:z};
+}
+
+/* ---------- Bühne ---------- */
+const $=id=>document.getElementById(id);
+const setup=$('setup'), stage=$('stage'), cv=$('cv'), ctx=cv.getContext('2d');
+let W=0,H=0,dpr=1,cols=56,rows=40,cw=5,ch=9,zb=new Float32Array(1),ib=new Int32Array(1);
+let rot=0.5,paused=false,dragging=false,t0=0,lastDraw=0,lastBuild=0,running=false,finalBuilt=false,lastPct=-1;
+let zoom=1,zoomT=1,mode='preview',spec=null,cam=null,cardShown=false,sendShown=false;
+const glyphs=new Map();
+const spark=[];
+for(let i=0;i<40;i++)spark.push({x:Math.random(),y:Math.random(),ph:Math.random()*TAU,sp:rnd(1,3),ch:['.','+','*','·','✦'][(Math.random()*5)|0],c:Math.random()<0.5?'#dff':'#ffc6e0'});
+const FONT=()=>'700 '+(cw/0.6).toFixed(1)+'px ui-monospace,Menlo,Consolas,monospace';
+
+function resize(){
+  const r=stage.getBoundingClientRect();
+  W=r.width||window.innerWidth;H=r.height||window.innerHeight;
+  dpr=Math.min(2,window.devicePixelRatio||1);
+  cv.width=Math.floor(W*dpr);cv.height=Math.floor(H*dpr);
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+  cw=clamp(W/84,4.4,8);ch=cw*1.75;
+  cols=Math.floor(W/cw);rows=Math.floor(H/ch);
+  zb=new Float32Array(cols*rows);ib=new Int32Array(cols*rows);
+  glyphs.clear();
+}
+window.addEventListener('resize',()=>{if(running)resize();});
+
+function glyph(chr,ci){
+  const key=ci*256+chr.charCodeAt(0);
+  let g=glyphs.get(key);
+  if(!g){
+    g=document.createElement('canvas');
+    g.width=Math.ceil(cw*dpr);g.height=Math.ceil(ch*dpr);
+    const c=g.getContext('2d');
+    c.scale(dpr,dpr);c.font=FONT();c.textAlign='center';c.textBaseline='middle';c.fillStyle=pal[ci];
+    c.fillText(chr,cw/2,ch/2);
+    glyphs.set(key,g);
+  }
+  return g;
+}
+function setDensity(z){
+  const s=z<1.5?0.015:(z<2.1?0.011:0.0085);
+  if(s!==STEP){STEP=s;clearSnaps();finalBuilt=false;lastBuild=0;}
+}
+function proj(x,y,z){
+  const x1=x*cam.cp+z*cam.sp, z1=-x*cam.sp+z*cam.cp, y2=y*cam.ca-z1*cam.sa, z2=y*cam.sa+z1*cam.ca, pr=1/(1-0.2*z2);
+  return [cam.cx+x1*pr*cam.S,cam.cy-(y2-cam.fy)*pr*cam.S];
+}
+
+function draw(ts){
+  ctx.clearRect(0,0,W,H);
+  const availH=H-130, S0=Math.min(availH/2.4,W*0.9/(2*(plan.R+0.4))), S=S0*zoom*(mode==='preview'?1:0.85), cx=W/2, cy=44+availH/2;
+  const fy=CYW+(zoom-1)*0.42;
+  ctx.textAlign='center';ctx.textBaseline='middle';ctx.font='12px ui-monospace,Menlo,Consolas,monospace';
+  for(const s of spark){
+    const a=Math.pow(Math.sin(ts*s.sp+s.ph)*0.5+0.5,2)*0.85;
+    if(a<0.05)continue;
+    ctx.globalAlpha=a;ctx.fillStyle=s.c;ctx.fillText(s.ch,s.x*W,s.y*(H-100)+20);
+  }
+  zb.fill(-9);ib.fill(-1);
+  const cp=Math.cos(rot),sp=Math.sin(rot),ca=Math.cos(pitch),sa=Math.sin(pitch);
+  cam={cx:cx,cy:cy,S:S,fy:fy,cp:cp,sp:sp,ca:ca,sa:sa};
+  for(let i=0;i<N;i++){
+    const x=PX[i],y=PY[i],z=PZ[i];
+    const x1=x*cp+z*sp, z1=-x*sp+z*cp, y2=y*ca-z1*sa, z2=y*sa+z1*ca;
+    const pr=1/(1-0.2*z2);
+    const sx=cx+x1*pr*S, sy=cy-(y2-fy)*pr*S;
+    if(sx<0||sy<0)continue;
+    const col=(sx/cw)|0,row=(sy/ch)|0;
+    if(col>=cols||row>=rows)continue;
+    const c=row*cols+col;
+    if(z2>zb[c]){zb[c]=z2;ib[c]=i;}
+  }
+  let lastA=-1;
+  const gw=Math.ceil(cw*dpr)/dpr, gh=Math.ceil(ch*dpr)/dpr;
+  for(let c=0,m=cols*rows;c<m;c++){
+    const i=ib[c]; if(i<0)continue;
+    const z2=zb[c], g=GL[i]; let chr;
+    if(g===0){
+      const li=LI[i]+0.2*z2;
+      chr=RAMP.charAt(clamp(Math.floor(li*RAMP.length),0,RAMP.length-1));
+    }else if(g===1){
+      const tx=TX[i],ty=TY[i],tz=TZ[i];
+      const tx1=tx*cp+tz*sp, tz1=-tx*sp+tz*cp, ty2=ty*ca-tz1*sa;
+      let dx=tx1,dy=-ty2; if(dy<0){dx=-dx;dy=-dy;}
+      const an=Math.atan2(dy,dx);
+      chr=(an<0.39||an>2.75)?'-':(an<1.18?'\\':(an<1.96?'|':'/'));
+    }else chr=FIXED[g-2];
+    const al=z2>0.15?1:(z2>-0.25?0.8:0.6);
+    if(al!==lastA){ctx.globalAlpha=al;lastA=al;}
+    ctx.drawImage(glyph(chr,CI[i]),Math.round((c%cols)*cw*dpr)/dpr,Math.round(Math.floor(c/cols)*ch*dpr)/dpr,gw,gh);
+  }
+  ctx.globalAlpha=1;
+}
+
+/* Sprechblase über dem Boten */
+function bubbleAt(text,pt){
+  const b=$('bubble');
+  if(!text||!cam||!pt){b.hidden=true;return;}
+  if(b.textContent!==text)b.textContent=text;
+  const p=proj(pt.x,GY+1.28,pt.z);
+  b.style.left=clamp(p[0],112,W-112)+'px';b.style.top=Math.max(40,p[1])+'px';
+  b.hidden=false;
+}
+const nameTo=()=>(spec&&spec.to)||'dich', nameFrom=()=>(spec&&spec.from)||'jemand';
+
+function frame(now){
+  requestAnimationFrame(frame);
+  if(!running||now-lastDraw<32)return;
+  const dt=Math.min(0.1,(now-lastDraw)/1000);lastDraw=now;
+  const tau=(now-t0)/1000;
+  if(Math.abs(zoomT-zoom)>0.002)zoom+=(zoomT-zoom)*0.2;else zoom=zoomT;
+  setDensity(zoom);
+  let pt=null, bub='';
+  if(mode==='preview'){
+    if(!paused&&!dragging)rot+=dt*0.55;
+    if(!finalBuilt&&(tau>=plan.T||now-lastBuild>45)){
+      buildScene(Math.min(tau,plan.T));lastBuild=now;
+      if(tau>=plan.T)finalBuilt=true;
+    }
+    draw(now/1000);
+    let p=clamp(tau/plan.T,0,1); const pc=Math.round(p*100); if(pc>=100)p=1;
+    if(pc!==lastPct){
+      lastPct=pc;
+      const k=Math.round(p*14), ph=p<0.3?'stiele wachsen':(p<0.7?'knospen formen':(p<1?'blüten öffnen':'fertig ♥  ziehen = drehen · 2 finger = zoom'));
+      $('status').textContent='> '+ph+(p<1?'\n  ['+'#'.repeat(k)+'-'.repeat(14-k)+'] '+pc+'%':'');
+      $('dedic').classList.toggle('on',p>=0.92);
+    }
+  }else if(mode==='receive'){
+    if(!paused&&!dragging)rot+=dt*0.55*smooth((tau-8.5)/2.5);
+    pt=buildReceive(tau);
+    draw(now/1000);
+    if(tau<RC.A0)bub=(tau>1.2)?'Blumenpost für '+nameTo()+'!':'';
+    else if(tau<5.3)bub='Einmal bitte auspacken ♥';
+    else if(tau<7.4)bub='Von '+nameFrom()+' mit Liebe gebunden';
+    else if(tau>=8.0&&tau<9.6)bub='Schönen Tag noch!';
+    bubbleAt(bub,tau<10.4?pt:null);
+    const st=tau<RC.A1?'der bote ist unterwegs …':(tau<RC.GROW+plan.T?'paket wird geöffnet …':'fertig ♥  ziehen = drehen · 2 finger = zoom');
+    if($('status').textContent!=='> '+st)$('status').textContent='> '+st;
+    if(tau>=RC.GROW+plan.T+0.3&&!cardShown){cardShown=true;showCard();}
+  }else{
+    if(tau<2.5)rot+=(0.3-rot)*0.08;
+    pt=buildSend(tau);
+    draw(now/1000);
+    if(tau>1.5&&tau<3.6)bub='Ich hol das Paket ab!';
+    else if(tau>=7.6&&tau<9.6)bub='Wird zugestellt ♥';
+    bubbleAt(bub,tau<10.4?pt:null);
+    const st=tau<SC.GO?'bote packt den strauß ein …':'paket ist unterwegs …';
+    if($('status').textContent!=='> '+st)$('status').textContent='> '+st;
+    if(tau>=SC.END&&!sendShown){sendShown=true;showSend();}
+  }
+}
+
+/* ---------- Code für den Versand ---------- */
+const ALPH='0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz-';
+function encodeSpec(s){
+  const bytes=new TextEncoder().encode(JSON.stringify([1,s.seed,s.cmask,s.kmask,s.count,s.from,s.to,s.msg]));
+  let n=1n;for(const b of bytes)n=(n<<8n)|BigInt(b);
+  let out='';while(n>0n){out=ALPH[Number(n%63n)]+out;n=n/63n;}
+  return 'bq-'+out;
+}
+function decodeSpec(text){
+  const m=/bq-([0-9A-Za-z-]{10,})/.exec(String(text||''));
+  if(!m)return null;
+  try{
+    let n=0n;for(const c of m[1]){const i=ALPH.indexOf(c);if(i<0)return null;n=n*63n+BigInt(i);}
+    const bytes=[];while(n>1n){bytes.push(Number(n&255n));n>>=8n;}
+    bytes.reverse();
+    const a=JSON.parse(new TextDecoder().decode(new Uint8Array(bytes)));
+    if(!Array.isArray(a)||a[0]!==1)return null;
+    const s={seed:a[1]>>>0,cmask:a[2]|0,kmask:a[3]|0,count:clamp(a[4]|0,3,30),from:String(a[5]||'').slice(0,16),to:String(a[6]||'').slice(0,16),msg:String(a[7]||'').slice(0,80)};
+    if(!(s.cmask&((1<<COLORS.length)-1))||!(s.kmask&((1<<KINDS.length)-1)))return null;
+    return s;
+  }catch(e){return null;}
+}
+function planFromSpec(s){
+  const cs=COLORS.filter((c,i)=>(s.cmask>>i)&1), ks=KINDS.filter((k,i)=>(s.kmask>>i)&1);
+  return makePlan(cs,ks,s.count,s.seed);
+}
+function shareText(s,code){
+  return '🌷 '+(s.from||'Jemand')+' hat dir Blumen geschickt!\nÖffne die Blumenpost-Seite, klapp „Blumenpost erhalten?“ auf und füge diesen Code ein:\n'+code;
+}
+async function copyText(txt){
+  try{await navigator.clipboard.writeText(txt);return true;}catch(e){}
+  try{
+    const ta=document.createElement('textarea');ta.value=txt;ta.style.cssText='position:fixed;left:-999px;top:0;opacity:0';
+    document.body.appendChild(ta);ta.focus();ta.select();
+    const ok=document.execCommand('copy');ta.remove();return ok;
+  }catch(e){return false;}
+}
+
+/* ---------- Szenen starten ---------- */
+function enterStage(m){
+  mode=m;stage.dataset.mode=m;
+  setup.hidden=true;stage.hidden=false;
+  resize();running=true;paused=false;pitch=0.2;zoom=zoomT=1;STEP=0.015;
+  $('bSpin').textContent='stopp';$('bZoom').textContent='zoom 1×';
+  $('card').hidden=true;$('sendPanel').hidden=true;$('bubble').hidden=true;
+  cardShown=false;sendShown=false;lastPct=-1;
+  clearSnaps();finalBuilt=false;lastBuild=0;
+  rot=(m==='preview')?0.5:0.3;
+  t0=performance.now();
+  $('dedic').classList.remove('on');
+}
+function currentSpec(seed){
+  let cmask=0,kmask=0;
+  COLORS.forEach((c,i)=>{if(selC.has(c.id))cmask|=1<<i;});
+  KINDS.forEach((k,i)=>{if(selK.has(k.id))kmask|=1<<i;});
+  return {seed:seed>>>0,cmask:cmask,kmask:kmask,count:parseInt($('count').value,10),
+    from:$('fromN').value.trim().slice(0,16),to:$('toN').value.trim().slice(0,16),msg:$('note').value.trim().slice(0,80)};
+}
+function openPreview(newSeed){
+  spec=currentSpec(newSeed?Math.floor(Math.random()*4294967296):(spec?spec.seed:Math.floor(Math.random()*4294967296)));
+  plan=planFromSpec(spec);
+  $('dedic').textContent=spec.msg;
+  enterStage('preview');
+}
+function openSend(){
+  spec=currentSpec(spec.seed);
+  $('dedic').textContent='';
+  enterStage('send');
+}
+function openReceive(s){
+  spec=s;plan=planFromSpec(s);
+  enterStage('receive');
+}
+function showCard(){
+  $('cardHead').textContent='Blumenpost von '+(spec.from||'jemandem')+(spec.to?' für '+spec.to:'');
+  $('cardMsg').textContent=spec.msg?'„'+spec.msg+'“':'Mit lieben Grüßen ♥';
+  $('card').hidden=false;
+}
+function showSend(){
+  const code=encodeSpec(spec);
+  $('spTo').textContent=spec.to||'den Empfänger';
+  $('shareTxt').value=shareText(spec,code);
+  $('spHint').textContent='';
+  $('sendPanel').dataset.code=code;
+  $('sendPanel').hidden=false;
+}
+function backToSetup(){
+  running=false;stage.hidden=true;setup.hidden=false;
+  $('bubble').hidden=true;window.scrollTo(0,0);
+}
+
+/* ---------- Auswahl-Oberfläche ---------- */
+const selC=new Set(['rot','pink','gelb','weiss','lila']), selK=new Set(['lily','tulip','rose','sunflower','iris']);
+const chipEls={c:[],k:[]};
+function chip(parent,label,pressed,lead,onToggle,key){
+  const b=document.createElement('button');
+  b.type='button';b.className='chip';b.setAttribute('aria-pressed',pressed?'true':'false');
+  b.appendChild(lead);
+  b.appendChild(document.createTextNode(label));
+  b.addEventListener('click',()=>{const on=b.getAttribute('aria-pressed')!=='true';b.setAttribute('aria-pressed',on?'true':'false');onToggle(on);refresh();});
+  parent.appendChild(b);
+  chipEls[key].push(b);
+}
+function refresh(){
+  $('cColors').textContent=selC.size+' / '+COLORS.length;
+  $('cKinds').textContent=selK.size+' / '+KINDS.length;
+  $('allC').textContent=selC.size===COLORS.length?'keine':'alle';
+  $('allK').textContent=selK.size===KINDS.length?'keine':'alle';
+  const ok=selC.size>0&&selK.size>0;
+  $('go').disabled=!ok;
+  $('hint').textContent=ok?'':(selC.size===0?'Wähle mindestens eine Farbe.':'Wähle mindestens eine Blumenart.');
+}
+COLORS.forEach(c=>{
+  const d=document.createElement('span');d.className='dot';
+  const col='hsl('+c.h+','+c.s+'%,'+c.l+'%)';d.style.background=col;d.style.color=col;
+  chip($('colors'),c.name,selC.has(c.id),d,on=>{on?selC.add(c.id):selC.delete(c.id);},'c');
+});
+KINDS.forEach(k=>{
+  const s=document.createElement('span');s.className='sig';s.textContent=k.sig;
+  chip($('kinds'),k.name,selK.has(k.id),s,on=>{on?selK.add(k.id):selK.delete(k.id);},'k');
+});
+function toggleAll(key,set,list){
+  const all=set.size===list.length;
+  set.clear();
+  if(!all)list.forEach(x=>set.add(x.id));
+  chipEls[key].forEach(b=>b.setAttribute('aria-pressed',(!all)?'true':'false'));
+  refresh();
+}
+$('allC').addEventListener('click',()=>toggleAll('c',selC,COLORS));
+$('allK').addEventListener('click',()=>toggleAll('k',selK,KINDS));
+$('count').addEventListener('input',e=>{$('countOut').textContent=e.target.value;});
+$('go').addEventListener('click',()=>openPreview(true));
+$('bBack').addEventListener('click',backToSetup);
+$('bMix').addEventListener('click',()=>openPreview(true));
+$('bSend').addEventListener('click',openSend);
+$('bAgain').addEventListener('click',()=>{enterStage('receive');});
+$('bSpin').addEventListener('click',()=>{paused=!paused;$('bSpin').textContent=paused?'drehen':'stopp';});
+const ZL=[1,1.8,2.6];
+$('bZoom').addEventListener('click',()=>{
+  let i=ZL.findIndex(z=>Math.abs(z-zoomT)<0.25);
+  i=(i+1)%ZL.length;zoomT=ZL[i];
+  $('bZoom').textContent='zoom '+zoomT+'×';
+});
+/* Empfangen / Antworten */
+$('unpack').addEventListener('click',()=>{
+  const s=decodeSpec($('codeIn').value);
+  if(!s){$('inHint').textContent='Das sieht nicht nach Blumenpost aus. Füge den Code ein, der mit „bq-“ beginnt.';return;}
+  $('inHint').textContent='';openReceive(s);
+});
+$('cAgain').addEventListener('click',()=>{enterStage('receive');});
+$('cReply').addEventListener('click',()=>{
+  const from=spec.to||$('fromN').value, to=spec.from;
+  backToSetup();
+  $('fromN').value=from||'';$('toN').value=to||'';$('note').value='';
+  $('inbox').open=false;
+});
+/* Versandfenster */
+$('spCode').addEventListener('click',async()=>{
+  const ok=await copyText($('sendPanel').dataset.code);
+  $('spHint').textContent=ok?'Code kopiert.':'Kopieren ging nicht. Markiere den Code im Textfeld von Hand.';
+});
+$('spNew').addEventListener('click',()=>{backToSetup();});
+
+/* Ziehen = drehen/kippen, zwei Finger = zoomen */
+const ptrs=new Map();let pd0=1,pz0=1;
+cv.addEventListener('pointerdown',e=>{
+  ptrs.set(e.pointerId,{x:e.clientX,y:e.clientY});
+  try{cv.setPointerCapture(e.pointerId);}catch(_){}
+  if(ptrs.size===2){const a=[...ptrs.values()];pd0=Math.hypot(a[0].x-a[1].x,a[0].y-a[1].y)||1;pz0=zoomT;}
+  dragging=true;
+});
+cv.addEventListener('pointermove',e=>{
+  const p=ptrs.get(e.pointerId); if(!p)return;
+  if(ptrs.size>=2){
+    p.x=e.clientX;p.y=e.clientY;
+    const a=[...ptrs.values()], d=Math.hypot(a[0].x-a[1].x,a[0].y-a[1].y);
+    zoomT=clamp(pz0*d/pd0,1,2.6);zoom=zoomT;
+    $('bZoom').textContent='zoom '+zoomT.toFixed(1)+'×';
+  }else{
+    rot+=(e.clientX-p.x)*0.012;
+    pitch=clamp(pitch-(e.clientY-p.y)*0.006,-0.1,1.15);
+    p.x=e.clientX;p.y=e.clientY;
+  }
+});
+const endDrag=e=>{ptrs.delete(e.pointerId);dragging=ptrs.size>0;};
+cv.addEventListener('pointerup',endDrag);cv.addEventListener('pointercancel',endDrag);
+cv.addEventListener('wheel',e=>{e.preventDefault();zoomT=clamp(zoomT*Math.exp(-e.deltaY*0.0015),1,2.6);$('bZoom').textContent='zoom '+zoomT.toFixed(1)+'×';},{passive:false});
+
+/* Name merken (nur für diesen Browser) */
+try{const n=localStorage.getItem('bq-name');if(n&&!$('fromN').value)$('fromN').value=n;}catch(e){}
+$('fromN').addEventListener('change',()=>{try{localStorage.setItem('bq-name',$('fromN').value.trim());}catch(e){}});
+
+/* Link mit Code im # öffnen */
+function checkHash(){
+  const s=decodeSpec(location.hash);
+  if(s)openReceive(s);
+}
+window.addEventListener('hashchange',checkHash);
+refresh();
+requestAnimationFrame(frame);
+checkHash();
+})();
+</script>
+</body>
+</html>

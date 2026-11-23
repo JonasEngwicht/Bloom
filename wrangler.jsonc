@@ -1,0 +1,12 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "bloom",
+  "compatibility_date": "2026-11-01",
+  "assets": {
+    "directory": "./public"
+  },
+  "routes": [
+    { "pattern": "digitale-blumen.de", "custom_domain": true },
+    { "pattern": "www.digitale-blumen.de", "custom_domain": true }
+  ]
+}
